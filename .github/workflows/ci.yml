@@ -1,0 +1,64 @@
+name: dbt CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  DBT_FABRIC_SERVER: ${{ secrets.DBT_FABRIC_SERVER }}
+  DBT_FABRIC_DATABASE: ${{ secrets.DBT_FABRIC_DATABASE }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+jobs:
+  dbt-ci:
+    name: dbt compile + test (PR) / run + test (main)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ODBC Driver 18 for SQL Server
+        run: |
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q
+          ACCEPT_EULA=Y sudo apt-get install -yq msodbcsql18 unixodbc-dev
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dbt-fabric
+        run: pip install dbt-fabric
+
+      - name: dbt compile (validate SQL)
+        run: dbt compile --profiles-dir .
+
+      - name: dbt test (PR validation)
+        if: github.event_name == 'pull_request'
+        run: dbt test --profiles-dir .
+
+      - name: dbt seed (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          DBT_FABRIC_SCHEMA: dbt_prod
+        run: dbt seed --profiles-dir .
+
+      - name: dbt run (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          DBT_FABRIC_SCHEMA: dbt_prod
+        run: dbt run --profiles-dir .
+
+      - name: dbt test (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          DBT_FABRIC_SCHEMA: dbt_prod
+        run: dbt test --profiles-dir .

@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: stg_organizations
+    description: "Cleaned reference data for organizational structure."
+    columns:
+      - name: organization_code
+        description: "Primary key. Unique code per organizational unit."
+        data_tests:
+          - unique
+          - not_null
+      - name: business_area
+        description: "High-level business area (e.g. Autonomous Solutions)."
+        data_tests:
+          - not_null
+      - name: division
+        data_tests:
+          - not_null
+      - name: business_lifecycle
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Product', 'Service', 'Support']
+      - name: region
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['APAC', 'EMEA', 'AMER']
+
+  - name: stg_customers
+    description: "Cleaned customer master data."
+    columns:
+      - name: customer_id
+        description: "Primary key."
+        data_tests:
+          - unique
+          - not_null
+      - name: organization_code
+        description: "Foreign key to stg_organizations."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_organizations')
+                field: organization_code
+      - name: account_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Enterprise', 'Mid-Market', 'SMB']
+
+  - name: stg_orders
+    description: "Cleaned order transactions with calculated order total."
+    columns:
+      - name: order_id
+        description: "Primary key."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['fulfilled', 'pending', 'cancelled']
+      - name: order_total
+        description: "Quantity × unit price in transaction currency."

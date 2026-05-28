@@ -1,0 +1,11 @@
+customer_id,customer_name_legal,account_type,organization_code,sales_region,country_code,created_date
+CUST-001,Acme Mining Corp,Enterprise,HEX-002,APAC,AU,2022-03-15
+CUST-002,Global Agri Ltd,Mid-Market,HEX-001,AMER,US,2021-08-22
+CUST-003,NovaTech Aerospace,Enterprise,HEX-005,EMEA,DE,2023-01-10
+CUST-004,Pacific Autonomy Pty,SMB,HEX-004,APAC,NZ,2022-11-05
+CUST-005,Meridian Geosystems,Mid-Market,HEX-003,AMER,CA,2020-06-30
+CUST-006,Alpine Mining AG,Enterprise,HEX-002,EMEA,CH,2021-02-14
+CUST-007,Southern Cross Farm,SMB,HEX-007,APAC,AU,2023-04-18
+CUST-008,Atlas Defense Inc,Enterprise,HEX-005,AMER,US,2022-09-01
+CUST-009,Nordic Positioning AS,Mid-Market,HEX-006,EMEA,NO,2021-12-20
+CUST-010,Frontier Autonomy LLC,SMB,HEX-004,AMER,US,2023-07-11

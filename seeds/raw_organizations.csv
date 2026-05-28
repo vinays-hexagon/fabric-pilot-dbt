@@ -1,0 +1,9 @@
+organization_code,business_area,division,business_lifecycle,region
+HEX-001,Autonomous Solutions,Agriculture,Product,APAC
+HEX-002,Manufacturing Intelligence,Mining,Service,EMEA
+HEX-003,Geosystems,NovaTel Positioning,Product,AMER
+HEX-004,Autonomous Solutions,Core Autonomy,Support,APAC
+HEX-005,Manufacturing Intelligence,Aerospace & Defense,Product,EMEA
+HEX-006,Geosystems,Septentrio Positioning,Service,AMER
+HEX-007,Autonomous Solutions,Agriculture,Service,AMER
+HEX-008,Manufacturing Intelligence,Mining,Product,APAC
