@@ -36,7 +36,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dbt-fabric
-        run: pip install dbt-fabric
+        run: pip install -r requirements.txt
 
       - name: dbt compile (validate SQL)
         run: dbt compile --profiles-dir .
