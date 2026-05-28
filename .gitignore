@@ -3,7 +3,7 @@ target/
 dbt_packages/
 logs/
 .env
-profiles.yml
+# profiles.yml is committed here — it uses only env_var() refs, no secrets
 *.pyc
 __pycache__/
 .DS_Store

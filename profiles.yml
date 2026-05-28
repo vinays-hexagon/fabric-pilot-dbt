@@ -1,0 +1,17 @@
+# CI profile — uses environment variables set from GitHub Secrets.
+# Local dev profile lives in ~/.dbt/profiles.yml (not committed).
+fabric_pilot:
+  target: ci
+  outputs:
+    ci:
+      type: fabric
+      driver: 'ODBC Driver 18 for SQL Server'
+      server: "{{ env_var('DBT_FABRIC_SERVER') }}"
+      port: 1433
+      database: "{{ env_var('DBT_FABRIC_DATABASE') }}"
+      schema: "{{ env_var('DBT_FABRIC_SCHEMA', 'dbt_ci') }}"
+      authentication: ServicePrincipal
+      tenant_id: "{{ env_var('AZURE_TENANT_ID') }}"
+      client_id: "{{ env_var('AZURE_CLIENT_ID') }}"
+      client_secret: "{{ env_var('AZURE_CLIENT_SECRET') }}"
+      threads: 4
