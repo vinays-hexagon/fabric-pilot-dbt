@@ -62,3 +62,17 @@ jobs:
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
         run: dbt test --profiles-dir .
+
+      - name: Elementary report (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          DBT_FABRIC_SCHEMA: dbt_prod
+        run: edr report --profiles-dir . --profile-target ci
+
+      - name: Upload Elementary report
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: elementary-report
+          path: edr_target/elementary_report.html
+          retention-days: 30

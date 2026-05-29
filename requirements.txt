@@ -1,3 +1,4 @@
 dbt-fabric==1.10.0
 snowflake-connector-python==4.6.0
 azure-identity==1.25.3
+elementary-data==0.24.0
