@@ -265,3 +265,55 @@ fabric-pilot-dbt/
 **CI fails with `gpg: cannot open '/dev/tty'`**
 - Ensure the ODBC install step uses `gpg --batch --dearmor` and pipes via `sudo tee`
 - Ensure the apt repo URL is for Ubuntu 24.04 (`noble`), not 22.04 (`jammy`)
+
+---
+
+## 10. Running the Full Pipeline Locally
+
+`run_pipeline.sh` runs all three stages end-to-end:
+
+```bash
+# Set required env vars first
+export SNOWFLAKE_ACCOUNT=BMGELYT-RWB85557
+export SNOWFLAKE_USER=elt_user
+export SNOWFLAKE_PASSWORD=<password>
+export DBT_FABRIC_SERVER=<warehouse-sql-endpoint>
+export DBT_FABRIC_DATABASE=dbt-pilot-wh
+
+./run_pipeline.sh
+```
+
+Flags to skip individual stages:
+```bash
+./run_pipeline.sh --skip-ingest       # skip Snowflake ingestion
+./run_pipeline.sh --skip-dbt          # skip dbt build
+./run_pipeline.sh --skip-elementary   # skip Elementary report
+```
+
+---
+
+## 11. Data Quality — Elementary
+
+Elementary captures dbt test results in `dbt-pilot-wh.dbt_vsesham_elementary`.
+
+Generate a local report any time:
+```bash
+edr report --profiles-dir ~/.dbt --profile-target dev
+# Opens edr_target/elementary_report.html in your browser
+```
+
+---
+
+## 12. Power BI — Connecting to Fabric Warehouse
+
+> **Note:** DirectLake mode requires a Fabric Lakehouse. For Fabric Warehouse use DirectQuery (real-time, zero-copy via SQL endpoint).
+
+Fabric automatically creates a **default semantic model** for every Warehouse — no Power BI Desktop needed.
+
+1. Open your Fabric workspace → click `dbt-pilot-wh`
+2. In the toolbar click **New report**
+3. Power BI opens in DirectQuery mode connected to the Warehouse
+4. In the **Data** pane, expand `dbt_vsesham_marts` → `dim_customers` and `fct_orders`
+5. Build your report and click **Save**
+
+**Gotcha:** `NVARCHAR` is not supported in Fabric Warehouse (trial). All string columns are `VARCHAR(4000)`. This does not affect Power BI — it reads column types correctly.
