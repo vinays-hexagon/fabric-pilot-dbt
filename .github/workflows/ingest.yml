@@ -1,0 +1,59 @@
+name: Snowflake → Fabric Ingest
+
+on:
+  workflow_dispatch:           # manual trigger from GitHub UI
+    inputs:
+      tables:
+        description: 'Space-separated table names (leave blank for all defaults)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 2 * * *'        # nightly at 02:00 UTC
+
+env:
+  SNOWFLAKE_ACCOUNT:    ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER:       ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_PASSWORD:   ${{ secrets.SNOWFLAKE_PASSWORD }}
+  DBT_FABRIC_SERVER:    ${{ secrets.DBT_FABRIC_SERVER }}
+  DBT_FABRIC_DATABASE:  ${{ secrets.DBT_FABRIC_DATABASE }}
+  AZURE_TENANT_ID:      ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_CLIENT_ID:      ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET:  ${{ secrets.AZURE_CLIENT_SECRET }}
+
+jobs:
+  ingest:
+    name: Ingest MDO tables from Snowflake
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ODBC Driver 18 for SQL Server
+        run: |
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --batch --dearmor | sudo tee /usr/share/keyrings/microsoft-prod.gpg > /dev/null
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q
+          ACCEPT_EULA=Y sudo apt-get install -yq msodbcsql18 unixodbc-dev
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ingestion
+        run: |
+          TABLES="${{ github.event.inputs.tables }}"
+          if [ -n "$TABLES" ]; then
+            python ingest/ingest_snowflake.py --tables $TABLES
+          else
+            python ingest/ingest_snowflake.py
+          fi
+
+      - name: Run dbt after ingest
+        run: dbt run --profiles-dir . --select tag:raw_dependent
+        continue-on-error: true

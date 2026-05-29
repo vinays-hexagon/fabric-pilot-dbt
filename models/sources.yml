@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw tables ingested from Snowflake via the ingest/ingest_snowflake.py script."
+    database: "dbt-pilot-wh"
+    schema: raw
+    tables:
+      - name: stg_ref_organization
+        description: "Raw organizational reference data from Snowflake as_analytics.dbt_vsesham_mdo."
+      - name: stg_ref_location
+        description: "Raw location reference data from Snowflake as_analytics.dbt_vsesham_mdo."
+      - name: stg_customer_master
+        description: "Raw customer master data from Snowflake as_analytics.dbt_vsesham_mdo."
+      - name: stg_product_master
+        description: "Raw product master data from Snowflake as_analytics.dbt_vsesham_mdo."
+      - name: stg_chart_of_accounts
+        description: "Raw chart of accounts from Snowflake as_analytics.dbt_vsesham_mdo."
