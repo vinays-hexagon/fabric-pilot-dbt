@@ -35,11 +35,14 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install dbt-fabric
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
       - name: dbt deps
         run: dbt deps --profiles-dir .
+
+      - name: Elementary init (create monitoring tables)
+        run: dbt run --select elementary --profiles-dir .
 
       - name: dbt compile (validate SQL)
         run: dbt compile --profiles-dir .
