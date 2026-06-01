@@ -12,6 +12,7 @@ env:
   AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ELEMENTARY_DISABLED: "true"
 
 jobs:
   dbt-ci:
@@ -42,39 +43,35 @@ jobs:
         run: dbt deps --profiles-dir .
 
       - name: dbt compile (validate SQL)
-        run: |
-          dbt compile --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: dbt compile --profiles-dir .
 
       - name: dbt test (PR validation)
         if: github.event_name == 'pull_request'
-        run: |
-          dbt test --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: dbt test --profiles-dir .
 
       - name: dbt seed (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
-        run: |
-          dbt seed --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: dbt seed --profiles-dir .
 
       - name: dbt run (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
-        run: |
-          dbt run --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: dbt run --profiles-dir .
 
       - name: dbt test (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
-        run: |
-          dbt test --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: dbt test --profiles-dir .
 
       - name: Elementary report (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
+          ELEMENTARY_DISABLED: "false"
         run: edr report --profiles-dir . --profile-target ci
 
       - name: Upload Elementary report
