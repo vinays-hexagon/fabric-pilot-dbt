@@ -441,6 +441,25 @@ fabric-pilot-dbt/
 - Ensure the ODBC install step uses `gpg --batch --dearmor` and pipes via `sudo tee`
 - Ensure the apt repo URL is for Ubuntu 24.04 (`noble`), not 22.04 (`jammy`)
 
+**CI fails with `dbt found 1 package(s) specified in packages.yml, but only 0 installed`**
+- `dbt deps` must be a step in the workflow before `dbt compile` / `dbt run`
+- `dbt_packages/` is correctly git-ignored but must be installed on every CI runner
+
+**CI fails with `Database Error: Incorrect syntax near the keyword 'order'`**
+- Elementary's `on-run-end` hook generates T-SQL that uses `order` as an unquoted identifier, which is a reserved keyword in Fabric Warehouse
+- Elementary hooks are suppressed in CI via a project-level macro override (`macros/elementary_disable.sql`) that returns `[none, none]` from `default__get_package_database_and_schema` when `ELEMENTARY_DISABLED=true`
+- The `ELEMENTARY_DISABLED=true` env var is set at the job level in `ci.yml` and overridden to `false` only for the `edr report` step on main push
+- Do not remove `macros/elementary_disable.sql` — Elementary will break CI again
+
+**CI fails with `mapping values are not allowed here` (YAML parse error)**
+- Caused by passing `--vars '{"key": value}'` inline in a YAML `run:` field — the `: ` inside the JSON string is parsed as a YAML mapping operator
+- Fix: use the `|` block scalar for any `run:` value that contains `--vars` with JSON, or avoid JSON entirely and use `ELEMENTARY_DISABLED` env var approach above
+
+**CI fails with `Database '' does not exist`**
+- `DBT_FABRIC_DATABASE` GitHub Secret is empty or missing
+- Re-set it: `gh secret set DBT_FABRIC_DATABASE --repo <org>/<repo> --body "dbt-pilot-wh"`
+- Verify all required secrets exist: `gh secret list --repo <org>/<repo>`
+
 ---
 
 ## 10. Running the Full Pipeline Locally
