@@ -66,6 +66,119 @@ flowchart TD
 
 ---
 
+## CI/CD Workflow
+
+Two GitHub Actions workflows handle automation:
+
+```mermaid
+flowchart TD
+    subgraph Triggers["Triggers"]
+        PR["Pull Request\nopened / updated\n→ main"]
+        PUSH["Push / merge\n→ main"]
+        MANUAL["Manual dispatch\nor nightly 02:00 UTC"]
+    end
+
+    subgraph Setup["Runner Setup — ubuntu-latest"]
+        CHK["actions/checkout@v4"]
+        ODBC["Install ODBC Driver 18\n(Ubuntu 24.04 noble repo)"]
+        PY["setup-python 3.11\n+ pip cache"]
+        DEPS["pip install -r requirements.txt\ndbt-fabric · snowflake-connector\nazure-identity · elementary-data"]
+    end
+
+    subgraph CI["ci.yml — dbt CI"]
+        COMPILE["dbt compile\n--profiles-dir .\nValidates all SQL"]
+        TEST_PR["dbt test\nschema: dbt_ci\nPR gate — must pass to merge"]
+        SEED["dbt seed\nschema: dbt_prod"]
+        RUN["dbt run\nschema: dbt_prod\nBuilds staging + marts"]
+        TEST_MAIN["dbt test\nschema: dbt_prod\n21 tests"]
+        EDR["edr report\nElementary HTML report"]
+        ART["Upload artifact\nelementary_report.html\n30-day retention"]
+    end
+
+    subgraph INGEST["ingest.yml — Snowflake → Fabric Ingest"]
+        ING["python ingest/ingest_snowflake.py\nSnowflake MDO → Fabric raw schema\n5 tables · 49 rows"]
+        DBT_ING["dbt run\n--select tag:raw_dependent"]
+    end
+
+    subgraph Auth["GitHub Secrets"]
+        SEC["DBT_FABRIC_SERVER\nDBT_FABRIC_DATABASE\nAZURE_TENANT_ID\nAZURE_CLIENT_ID\nAZURE_CLIENT_SECRET\nSNOWFLAKE_ACCOUNT\nSNOWFLAKE_USER\nSNOWFLAKE_PASSWORD"]
+    end
+
+    PR --> Setup
+    PUSH --> Setup
+    MANUAL --> Setup
+    CHK --> ODBC --> PY --> DEPS
+
+    DEPS --> COMPILE
+    COMPILE --> TEST_PR
+
+    DEPS --> COMPILE
+    COMPILE -->|"push to main"| SEED
+    SEED --> RUN --> TEST_MAIN --> EDR --> ART
+
+    DEPS -->|"ingest trigger"| ING --> DBT_ING
+
+    Auth -.->|"injected as env vars"| CI
+    Auth -.->|"injected as env vars"| INGEST
+```
+
+---
+
+## Git Branching Strategy
+
+```mermaid
+gitGraph
+   commit id: "Initial commit: project scaffold"
+   commit id: "feat: dbt-fabric connection + debug"
+
+   branch feature/staging-models
+   checkout feature/staging-models
+   commit id: "feat: add stg_organizations, stg_customers"
+   commit id: "feat: add stg_orders with order_total"
+   commit id: "test: 21 data tests across staging layer"
+
+   checkout main
+   merge feature/staging-models id: "PR #1 merged ✓ CI green"
+   commit id: "feat: dim_customers + fct_orders marts"
+
+   branch feature/cicd-setup
+   checkout feature/cicd-setup
+   commit id: "feat: GitHub Actions ci.yml"
+   commit id: "fix: Ubuntu 24.04 ODBC install"
+   commit id: "fix: commit profiles.yml for CI"
+
+   checkout main
+   merge feature/cicd-setup id: "PR #2 merged ✓ CI green"
+
+   branch feature/snowflake-ingest
+   checkout feature/snowflake-ingest
+   commit id: "feat: ingest_snowflake.py EL script"
+   commit id: "fix: VARCHAR not NVARCHAR in Fabric"
+   commit id: "feat: ingest.yml nightly workflow"
+
+   checkout main
+   merge feature/snowflake-ingest id: "PR #3 merged ✓ CI green"
+   commit id: "feat: Elementary data quality + edr report"
+   commit id: "feat: DataHub dbt + mssql connectors"
+   commit id: "feat: run_pipeline.sh end-to-end script"
+
+   branch feature/new-model
+   checkout feature/new-model
+   commit id: "feat: add new dbt model"
+   commit id: "test: add schema tests"
+
+   checkout main
+   merge feature/new-model id: "PR #N merged → deploys to dbt_prod"
+```
+
+> **Branch rules:**
+> - `main` is protected — direct pushes blocked, PR required
+> - PR triggers `dbt compile + test` against `dbt_ci` schema — must pass to merge
+> - Merge to `main` triggers full deploy to `dbt_prod` + Elementary report artifact
+> - `profiles.yml` is committed (env_var refs only, no secrets) — never add it back to `.gitignore`
+
+---
+
 ## Prerequisites
 
 | Tool | Version | Install |
