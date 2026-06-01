@@ -42,29 +42,34 @@ jobs:
         run: dbt deps --profiles-dir .
 
       - name: dbt compile (validate SQL)
-        run: dbt compile --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: |
+          dbt compile --profiles-dir . --vars '{"elementary_disabled": true}'
 
       - name: dbt test (PR validation)
         if: github.event_name == 'pull_request'
-        run: dbt test --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: |
+          dbt test --profiles-dir . --vars '{"elementary_disabled": true}'
 
       - name: dbt seed (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
-        run: dbt seed --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: |
+          dbt seed --profiles-dir . --vars '{"elementary_disabled": true}'
 
       - name: dbt run (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
-        run: dbt run --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: |
+          dbt run --profiles-dir . --vars '{"elementary_disabled": true}'
 
       - name: dbt test (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           DBT_FABRIC_SCHEMA: dbt_prod
-        run: dbt test --profiles-dir . --vars '{"elementary_disabled": true}'
+        run: |
+          dbt test --profiles-dir . --vars '{"elementary_disabled": true}'
 
       - name: Elementary report (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
