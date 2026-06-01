@@ -4,6 +4,68 @@ dbt + Microsoft Fabric Warehouse local development and CI/CD setup.
 
 ---
 
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph Sources["Sources"]
+        SF["❄️ Snowflake\nas_analytics.dbt_vsesham_mdo\n21 MDO tables"]
+    end
+
+    subgraph Ingest["Ingestion — ingest/ingest_snowflake.py"]
+        PY["Python EL Script\nsnowflake-connector-python\npyodbc + Azure AD token"]
+    end
+
+    subgraph Fabric["Microsoft Fabric Warehouse — dbt-pilot-wh"]
+        RAW["raw schema\nIngested source tables"]
+        STG["dbt_vsesham_staging\nViews — stg_organizations\nstg_customers · stg_orders"]
+        MART["dbt_vsesham_marts\nTables — dim_customers\nfct_orders"]
+        ELEM["dbt_vsesham_elementary\nElementary monitoring tables"]
+    end
+
+    subgraph Transform["Transformation — dbt Core + dbt-fabric 1.10"]
+        DBT["dbt build\nseed · run · test"]
+    end
+
+    subgraph Quality["Data Quality — Elementary 0.24"]
+        EDR["edr report\nHTML observability report\nTest results · Anomaly detection"]
+    end
+
+    subgraph Governance["Data Governance — DataHub"]
+        DH_DBT["dbt connector\n238 events\nLineage · descriptions · tests"]
+        DH_FAB["mssql connector\n403 events\nPhysical schema catalog"]
+        DH_UI["DataHub UI :9002\nLineage graph · catalog search"]
+    end
+
+    subgraph BI["Business Intelligence"]
+        PBI["Power BI\nDirectQuery → Fabric Warehouse\nReal-time reports"]
+    end
+
+    subgraph CICD["CI/CD — GitHub Actions"]
+        PR["Pull Request\ndbt compile + test\nschema: dbt_ci"]
+        MAIN["Push to main\ndbt seed + run + test\nElementary report artifact\nschema: dbt_prod"]
+        NIGHTLY["Nightly 02:00 UTC\nSnowflake ingest\n+ dbt run"]
+    end
+
+    SF -->|"snowflake-connector-python"| PY
+    PY -->|"pyodbc + Azure AD"| RAW
+    RAW -->|"dbt run"| STG
+    STG -->|"dbt run"| MART
+    DBT --> ELEM
+    RAW & STG & MART --> DBT
+    DBT -->|"on-run-end hook"| ELEM
+    ELEM --> EDR
+    MART -->|"DirectQuery"| PBI
+    MART & STG --> DH_FAB
+    DBT --> DH_DBT
+    DH_DBT & DH_FAB --> DH_UI
+
+    CICD -.->|"authenticates via\nService Principal"| Fabric
+    CICD -.->|"triggers"| Transform
+```
+
+---
+
 ## Prerequisites
 
 | Tool | Version | Install |
