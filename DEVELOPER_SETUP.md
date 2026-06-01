@@ -274,7 +274,7 @@ fabric-pilot-dbt/
 
 ```bash
 # Set required env vars first
-export SNOWFLAKE_ACCOUNT=BMGELYT-RWB85557
+export SNOWFLAKE_ACCOUNT=ZFSYMIS-RX17347
 export SNOWFLAKE_USER=elt_user
 export SNOWFLAKE_PASSWORD=<password>
 export DBT_FABRIC_SERVER=<warehouse-sql-endpoint>
