@@ -1,10 +1,17 @@
-name: dbt CI
+name: dbt CI/CD
+
+# Branch strategy (Section 5 — Enterprise Fabric Platform Setup Plan):
+#   feature/*  → PR into dev
+#   dev        → auto-deploy to dbt_dev
+#   release/qa → auto-deploy to dbt_qa
+#   main       → auto-deploy to dbt_prod (requires "production" environment approval)
+#   hotfix/*   → PR into main, backport PR into dev
 
 on:
   pull_request:
-    branches: [main]
+    branches: [dev, 'release/qa', main]
   push:
-    branches: [main]
+    branches: [dev, 'release/qa', main]
 
 env:
   DBT_FABRIC_SERVER: ${{ secrets.DBT_FABRIC_SERVER }}
@@ -14,14 +21,19 @@ env:
   AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ELEMENTARY_DISABLED: "true"
 
+# ── Reusable setup is repeated per job (GitHub Actions has no native step reuse
+#    without composite actions). Keep setup steps identical across all jobs.
+
 jobs:
-  dbt-ci:
-    name: dbt compile + test (PR) / run + test (main)
+
+  # ── Runs on every PR — compile + test against dbt_ci scratch schema ──────────
+  validate:
+    name: Validate (PR)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install ODBC Driver 18 for SQL Server
         run: |
@@ -30,8 +42,7 @@ jobs:
           sudo apt-get update -q
           ACCEPT_EULA=Y sudo apt-get install -yq msodbcsql18 unixodbc-dev
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -42,40 +53,136 @@ jobs:
       - name: dbt deps
         run: dbt deps --profiles-dir .
 
-      - name: dbt compile (validate SQL)
+      - name: dbt compile
         run: dbt compile --profiles-dir .
 
-      - name: dbt test (PR validation)
-        if: github.event_name == 'pull_request'
+      - name: dbt test
         run: dbt test --profiles-dir .
 
-      - name: dbt seed (main branch only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          DBT_FABRIC_SCHEMA: dbt_prod
+  # ── Push to dev → full run into dbt_dev ─────────────────────────────────────
+  deploy-dev:
+    name: Deploy → Dev
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      DBT_FABRIC_SCHEMA: dbt_dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ODBC Driver 18 for SQL Server
+        run: |
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --batch --dearmor | sudo tee /usr/share/keyrings/microsoft-prod.gpg > /dev/null
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q
+          ACCEPT_EULA=Y sudo apt-get install -yq msodbcsql18 unixodbc-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: dbt deps
+        run: dbt deps --profiles-dir .
+
+      - name: dbt seed
         run: dbt seed --profiles-dir .
 
-      - name: dbt run (main branch only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          DBT_FABRIC_SCHEMA: dbt_prod
+      - name: dbt run
         run: dbt run --profiles-dir .
 
-      - name: dbt test (main branch only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          DBT_FABRIC_SCHEMA: dbt_prod
+      - name: dbt test
         run: dbt test --profiles-dir .
 
-      - name: Elementary report (main branch only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          DBT_FABRIC_SCHEMA: dbt_prod
-          ELEMENTARY_DISABLED: "false"
+  # ── Push to release/qa → full run into dbt_qa ───────────────────────────────
+  deploy-qa:
+    name: Deploy → QA
+    if: github.ref == 'refs/heads/release/qa' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: qa
+    env:
+      DBT_FABRIC_SCHEMA: dbt_qa
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ODBC Driver 18 for SQL Server
+        run: |
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --batch --dearmor | sudo tee /usr/share/keyrings/microsoft-prod.gpg > /dev/null
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q
+          ACCEPT_EULA=Y sudo apt-get install -yq msodbcsql18 unixodbc-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: dbt deps
+        run: dbt deps --profiles-dir .
+
+      - name: dbt seed
+        run: dbt seed --profiles-dir .
+
+      - name: dbt run
+        run: dbt run --profiles-dir .
+
+      - name: dbt test
+        run: dbt test --profiles-dir .
+
+  # ── Push to main → full run into dbt_prod (requires manual approval) ─────────
+  # Gate: create a GitHub Environment named "production" with required reviewers.
+  # Repo Settings → Environments → production → Required reviewers (2 approvers).
+  deploy-prod:
+    name: Deploy → Prod
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DBT_FABRIC_SCHEMA: dbt_prod
+      ELEMENTARY_DISABLED: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ODBC Driver 18 for SQL Server
+        run: |
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --batch --dearmor | sudo tee /usr/share/keyrings/microsoft-prod.gpg > /dev/null
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q
+          ACCEPT_EULA=Y sudo apt-get install -yq msodbcsql18 unixodbc-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: dbt deps
+        run: dbt deps --profiles-dir .
+
+      - name: dbt seed
+        run: dbt seed --profiles-dir .
+
+      - name: dbt run
+        run: dbt run --profiles-dir .
+
+      - name: dbt test
+        run: dbt test --profiles-dir .
+
+      - name: Elementary report
         run: edr report --profiles-dir . --profile-target ci
 
       - name: Upload Elementary report
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: elementary-report

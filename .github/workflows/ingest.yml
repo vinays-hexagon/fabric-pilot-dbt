@@ -58,5 +58,7 @@ jobs:
           fi
 
       - name: Run dbt after ingest
+        env:
+          DBT_FABRIC_SCHEMA: dbt_prod
         run: dbt run --profiles-dir . --select tag:raw_dependent
         continue-on-error: true
