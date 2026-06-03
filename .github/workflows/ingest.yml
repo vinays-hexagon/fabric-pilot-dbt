@@ -19,6 +19,7 @@ env:
   AZURE_TENANT_ID:      ${{ secrets.AZURE_TENANT_ID }}
   AZURE_CLIENT_ID:      ${{ secrets.AZURE_CLIENT_ID }}
   AZURE_CLIENT_SECRET:  ${{ secrets.AZURE_CLIENT_SECRET }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   ingest:
@@ -58,5 +59,7 @@ jobs:
           fi
 
       - name: Run dbt after ingest
+        env:
+          DBT_FABRIC_SCHEMA: dbt_prod
         run: dbt run --profiles-dir . --select tag:raw_dependent
         continue-on-error: true
