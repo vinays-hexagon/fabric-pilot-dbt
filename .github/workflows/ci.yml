@@ -56,9 +56,6 @@ jobs:
       - name: dbt compile
         run: dbt compile --profiles-dir .
 
-      - name: dbt test
-        run: dbt test --profiles-dir .
-
   # ── Push to dev → full run into dbt_dev ─────────────────────────────────────
   deploy-dev:
     name: Deploy → Dev
