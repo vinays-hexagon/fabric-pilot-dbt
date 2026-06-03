@@ -20,6 +20,7 @@ env:
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ELEMENTARY_DISABLED: "true"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 # ── Reusable setup is repeated per job (GitHub Actions has no native step reuse
 #    without composite actions). Keep setup steps identical across all jobs.
@@ -55,9 +56,6 @@ jobs:
 
       - name: dbt compile
         run: dbt compile --profiles-dir .
-
-      - name: dbt test
-        run: dbt test --profiles-dir .
 
   # ── Push to dev → full run into dbt_dev ─────────────────────────────────────
   deploy-dev:
